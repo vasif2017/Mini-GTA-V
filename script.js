@@ -8,21 +8,21 @@ const missions = [
     id: 1,
     title: "Миссия 1: Разгон",
     description: "Разгонись до 40 км/ч и удерживай скорость 3 секунды.",
-    condition: (player) => player.currentSpeed >= 40,
+    condition: (p) => p.currentSpeed >= 40,
     reward: "Открыт доступ к гаражу"
   },
   {
     id: 2,
     title: "Миссия 2: Доставка",
     description: "Доедь до маркера на севере (Z = 40) без остановки.",
-    condition: (player) => player.position.z >= 40 && player.currentSpeed > 0,
+    condition: (p) => p.position.z >= 40 && p.currentSpeed > 0,
     reward: "Бонус к скорости +10%"
   },
   {
     id: 3,
     title: "Миссия 3: Парковка",
     description: "Остановись в зоне парковки (X = 0, Z = 50) и не двигайся 2 секунды.",
-    condition: (player) => Math.abs(player.position.x) < 2 && player.position.z > 48 && player.position.z < 52 && player.currentSpeed < 1,
+    condition: (p) => Math.abs(p.position.x) < 2 && p.position.z > 48 && p.position.z < 52 && p.currentSpeed < 1,
     reward: "Новый цвет машины"
   }
 ];
@@ -58,7 +58,6 @@ function checkMissionProgress(player) {
     if (missionStartTime === 0) missionStartTime = performance.now();
     const timeHeld = (performance.now() - missionStartTime) / 1000;
     
-    // Для миссии 1 и 3 нужно удерживать условие несколько секунд
     const holdTime = m.id === 1 ? 3 : (m.id === 3 ? 2 : 0);
     
     if (timeHeld >= holdTime) {
@@ -71,13 +70,13 @@ function checkMissionProgress(player) {
 
 function completeMission(m) {
   missionCompleted = true;
-  document.getElementById('mission-status').innerText = `Mission: \${m.title} (COMPLETE!)`;
+  document.getElementById('mission-status').innerText = `Mission: ${m.title} (COMPLETE!)`;
   document.getElementById('mission-status').style.color = "#4ade80";
-  alert(`Миссия выполнена! Награда: \${m.reward}`);
+  alert(`Миссия выполнена! Награда: ${m.reward}`);
   setTimeout(startNextMission, 1000);
 }
 
-// --- ИНИЦИАЛИЗАЦИЯ ---
+// --- ИНИЦИАЛИЗАЦИЯ THREE.JS ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
 scene.fog = new THREE.FogExp2(0x87CEEB, 0.03);
@@ -90,7 +89,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
-// --- ОСВЕЩЕНИЕ ---
+// --- ОСВЕЩЕНИЕ (упрощённое) ---
 const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.7);
 scene.add(hemiLight);
 
@@ -105,7 +104,7 @@ dirLight.shadow.mapSize.width = 1024;
 dirLight.shadow.mapSize.height = 1024;
 scene.add(dirLight);
 
-// --- ДОРОГА ---
+// --- ДОРОГА (Canvas-текстура) ---
 const roadCanvas = document.createElement('canvas');
 roadCanvas.width = 256;
 roadCanvas.height = 256;
@@ -138,7 +137,7 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// --- ГОРОД ---
+// --- ГОРОД (меньше зданий, без теней у окон) ---
 function createBuilding(x, z, height, color) {
   const group = new THREE.Group();
   
@@ -169,7 +168,7 @@ function createBuilding(x, z, height, color) {
       const windowMesh = new THREE.Mesh(wGeo, winMat);
       
       let wx = 0, wz = 0;
-      if (side === 0) { wx = 4; wz = 3.9; }
+            if (side === 0) { wx = 4; wz = 3.9; }
       else if (side === 1) { wx = -4; wz = 3.9; }
       else if (side === 2) { wx = 3.9; wz = 4; }
       else if (side === 3) { wx = 3.9; wz = -4; }
@@ -189,13 +188,13 @@ function createBuilding(x, z, height, color) {
 const colors = [0xcccccc, 0xd2b48c, 0x8b4513, 0x708090];
 for (let i = -MAP_SIZE; i <= MAP_SIZE; i += 16) {
   for (let j = -MAP_SIZE; j <= MAP_SIZE; j += 16) {
-    if (Math.abs(i) < 10 && Math.abs(j) < 10) continue;
+    if (Math.abs(i) < 10 && Math.abs(j) < 10) continue; // пропускаем центр (там игрок)
     const h = 6 + Math.random() * 10;
     createBuilding(i, j, h, colors[Math.floor(Math.random() * colors.length)]);
   }
 }
 
-// --- ФОНАРИ ---
+// --- ФОНАРИ (без теней для производительности) ---
 function createLamp(x, z) {
   const lamp = new THREE.Group();
   const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 4, 16);
@@ -209,6 +208,7 @@ function createLamp(x, z) {
   lamp.add(light);
   
   lamp.position.set(x, 0, z);
+  // Не включаем тени у фонарей — это сильно экономит FPS на слабых устройствах
   lamp.castShadow = false;
   scene.add(lamp);
 }
@@ -218,7 +218,7 @@ for (let i = -MAP_SIZE; i <= MAP_SIZE; i += 25) {
   }
 }
 
-// --- МАШИНА ---
+// --- МАШИНА (игрок) ---
 const car = new THREE.Group();
 
 const carBodyGeo = new THREE.BoxGeometry(2.2, 1.2, 4.5);
@@ -252,7 +252,7 @@ wheelPositions.forEach(pos => {
 
 scene.add(car);
 
-// --- ИГРОК (машина) ---
+// --- ИГРОК (состояние) ---
 const player = {
   mesh: car,
   position: new THREE.Vector3(0, 0, 0),
@@ -287,7 +287,7 @@ window.addEventListener('keyup', (e) => {
   if (e.code === 'Space') keys.space = false;
 });
 
-// --- СЕНСОРНОЕ УПРАВЛЕНИЕ ---
+// --- СЕНСОРНОЕ УПРАВЛЕНИЕ (для телефонов) ---
 const btnUp = document.getElementById('btn-up');
 const btnLeft = document.getElementById('btn-left');
 const btnDown = document.getElementById('btn-down');
@@ -295,18 +295,29 @@ const btnRight = document.getElementById('btn-right');
 const btnEnter = document.getElementById('btn-enter');
 const btnJump = document.getElementById('btn-jump');
 
-btnUp.addEventListener('touchstart', (e) => { e.preventDefault(); keys.w = true; }, {passive: false});
-btnUp.addEventListener('touchend', () => keys.w = false);
-btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.a = true; }, {passive: false});
-btnLeft.addEventListener('touchend', () => keys.a = false);
-btnDown.addEventListener('touchstart', (e) => { e.preventDefault(); keys.s = true; }, {passive: false});
-btnDown.addEventListener('touchend', () => keys.s = false);
-btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.d = true; }, {passive: false});
-btnRight.addEventListener('touchend', () => keys.d = false);
-btnEnter.addEventListener('touchstart', (e) => { e.preventDefault(); keys.e = true; }, {passive: false});
-btnEnter.addEventListener('touchend', () => keys.e = false);
-btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); keys.space = true; }, {passive: false});
-btnJump.addEventListener('touchend', () => keys.space = false);
+function bindTouch(el, key) {
+  el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; }, { passive: false });
+  el.addEventListener('touchend', () => keys[key] = false);
+}
+
+bindTouch(btnUp, 'w');
+bindTouch(btnLeft, 'a');
+bindTouch(btnDown, 's');
+bindTouch(btnRight, 'd');
+bindTouch(btnEnter, 'e');
+bindTouch(btnJump, 'space');
+
+// Также поддерживаем клик для планшетов/ноутбуков с тачскрином
+function bindClick(el, key) {
+  el.addEventListener('mousedown', () => keys[key] = true);
+  el.addEventListener('mouseup', () => keys[key] = false);
+  el.addEventListener('mouseleave', () => keys[key] = false); // если палец ушёл за пределы кнопки
+}
+
+[btnUp, btnLeft, btnDown, btnRight, btnEnter, btnJump].forEach((el, idx) => {
+  const k = ['w','a','s','d','e','space'][idx];
+  bindClick(el, k);
+});
 
 // --- ОБНОВЛЕНИЕ ИГРЫ ---
 function update() {
@@ -344,7 +355,7 @@ function update() {
     // Скорость для UI
     player.currentSpeed = player.speed * 3.6; // м/с в км/ч
   } else {
-    // Пешком (упрощено)
+    // Пешком (упрощённо)
     if (keys.w) player.position.z -= 0.2;
     if (keys.s) player.position.z += 0.2;
     if (keys.a) player.position.x -= 0.2;
@@ -373,7 +384,7 @@ function animate() {
   update();
   
   // Обновление UI
-  document.getElementById('speed').innerText = `Speed: \${Math.floor(player.currentSpeed)} km/h`;
+  document.getElementById('speed').innerText = `Speed: ${Math.floor(player.currentSpeed)} km/h`;
   
   renderer.render(scene, camera);
 }
@@ -381,3 +392,4 @@ function animate() {
 // --- ЗАПУСК ---
 startNextMission(); // первая миссия при старте
 animate();
+

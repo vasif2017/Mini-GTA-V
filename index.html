@@ -2,47 +2,32 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <!-- Блокируем зум и фиксируем горизонтальную ориентацию -->
+  <!-- viewport для мобильных: без зума, фиксированный масштаб -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>GTA Mini: Landscape Missions</title>
+  <title>GTA Mini: Cross-Platform</title>
   <style>
-    body { 
-      margin: 0; 
-      overflow: hidden; 
-      background-color: #111; 
-      font-family: 'Segoe UI', sans-serif; 
-      color: white; 
-      touch-action: none;
-      /* Принудительный ландшафт через CSS (работает на многих мобильных браузерах) */
-      transform: rotate(0deg);
-    }
-
-    /* Поворот экрана для мобильных (ландшафт) */
-    @media (max-width: 768px) and (orientation: portrait) {
-      body {
-        transform: rotate(90deg);
-        transform-origin: top left;
-        width: 100vh;
-        height: 100vw;
-        position: absolute;
-        top: 0;
-        left: 0;
-      }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #111;
+      font-family: 'Segoe UI', sans-serif;
+      color: white;
+      touch-action: none; /* отключаем зум и скролл страницы */
     }
 
     canvas { display: block; }
 
-    /* UI — левый верхний угол */
+    /* --- UI (левый верхний угол) --- */
     #ui {
-      position: absolute; 
-      top: 15px; 
+      position: absolute;
+      top: 15px;
       left: 15px;
-      background: rgba(0, 0, 0, 0.7); 
-      padding: 12px; 
+      background: rgba(0, 0, 0, 0.7);
+      padding: 12px;
       border-radius: 8px;
-      pointer-events: none; 
+      pointer-events: none;
       text-shadow: 1px 1px 2px black;
-      max-width: 300px; 
+      max-width: 300px;
       border: 1px solid rgba(255,255,255,0.2);
       z-index: 10;
     }
@@ -52,7 +37,7 @@
     #speed { color: #fbbf24; }
     #mission-status { color: #f43f5e; }
 
-    /* Сенсорные кнопки — левый нижний угол */
+    /* --- Сенсорные кнопки (левый нижний угол) --- */
     #controls {
       position: absolute;
       bottom: 20px;
@@ -80,7 +65,7 @@
     #btn-enter { grid-column: 2; grid-row: 3; background: rgba(34, 197, 94, 0.3); border-color: rgba(34, 197, 94, 0.6); }
     #btn-enter:active { background: rgba(34, 197, 94, 0.6); }
 
-    /* Кнопка прыжка — правый нижний угол */
+    /* --- Кнопка прыжка (правый нижний угол) --- */
     #btn-jump {
       position: absolute;
       bottom: 20px;
@@ -101,7 +86,7 @@
     }
     #btn-jump:active { background: rgba(248, 113, 113, 0.6); }
 
-    /* Всплывающее окно миссий */
+    /* --- Модальное окно миссий (по центру) --- */
     #mission-modal {
       position: absolute;
       top: 50%;
@@ -115,7 +100,8 @@
       pointer-events: auto;
       z-index: 20;
       display: none;
-      max-width: 300px;
+      max-width: 90vw;
+      width: 80%;
     }
     #mission-modal h3 { color: #4ade80; margin-top: 0; }
     #mission-modal p { line-height: 1.5; }
@@ -128,14 +114,34 @@
       border-radius: 6px;
       cursor: pointer;
     }
+
+    /* --- Горизонтальный режим на мобильных --- */
+    @media (max-width: 768px) and (orientation: portrait) {
+      body {
+        transform: rotate(90deg);
+        transform-origin: top left;
+        width: 100vh;
+        height: 100vw;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+      #ui { top: 20px; left: 20px; }
+      #controls { bottom: 20px; left: 20px; }
+      #btn-jump { bottom: 20px; right: 20px; }
+      #mission-modal {
+        max-width: 85vw;
+        padding: 15px;
+      }
+    }
   </style>
 </head>
 <body>
 
   <!-- Интерфейс -->
   <div id="ui">
-    <h3>GTA Mini: Missions</h3>
-    <p class="stat">Горизонтальный режим</p>
+    <h3>GTA Mini: Cross-Platform</h3>
+    <p class="stat">ПК: WASD + Пробел | Телефон: кнопки</p>
     <p id="mission-status" class="stat">Mission: None</p>
     <p id="speed" class="stat">Speed: 0 km/h</p>
   </div>
@@ -161,7 +167,7 @@
   <!-- Подключаем Three.js -->
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
   
-  <!-- Подключаем наш скрипт -->
+  <!-- Наш скрипт -->
   <script src="script.js"></script>
 </body>
 </html>
