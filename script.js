@@ -1,12 +1,86 @@
 // --- КОНФИГУРАЦИЯ ---
-const MAP_SIZE = 60; // Уменьшили карту для мобилок
+const MAP_SIZE = 60;
 const BOUNDARY_PADDING = 4;
+
+// --- СИСТЕМА МИССИЙ ---
+const missions = [
+  {
+    id: 1,
+    title: "Миссия 1: Разгон",
+    description: "Разгонись до 40 км/ч и удерживай скорость 3 секунды.",
+    condition: (player) => player.currentSpeed >= 40,
+    reward: "Открыт доступ к гаражу"
+  },
+  {
+    id: 2,
+    title: "Миссия 2: Доставка",
+    description: "Доедь до маркера на севере (Z = 40) без остановки.",
+    condition: (player) => player.position.z >= 40 && player.currentSpeed > 0,
+    reward: "Бонус к скорости +10%"
+  },
+  {
+    id: 3,
+    title: "Миссия 3: Парковка",
+    description: "Остановись в зоне парковки (X = 0, Z = 50) и не двигайся 2 секунды.",
+    condition: (player) => Math.abs(player.position.x) < 2 && player.position.z > 48 && player.position.z < 52 && player.currentSpeed < 1,
+    reward: "Новый цвет машины"
+  }
+];
+
+let currentMissionIndex = -1;
+let missionStartTime = 0;
+let missionCompleted = false;
+
+function startNextMission() {
+  currentMissionIndex++;
+  if (currentMissionIndex >= missions.length) {
+    alert("Все миссии пройдены!");
+    currentMissionIndex = 0; // зацикливаем для теста
+  }
+  const m = missions[currentMissionIndex];
+  document.getElementById('mission-title').innerText = m.title;
+  document.getElementById('mission-desc').innerText = m.description;
+  document.getElementById('mission-modal').style.display = 'block';
+  missionStartTime = 0;
+  missionCompleted = false;
+}
+
+function closeMissionModal() {
+  document.getElementById('mission-modal').style.display = 'none';
+  missionStartTime = performance.now();
+}
+
+function checkMissionProgress(player) {
+  if (missionCompleted || currentMissionIndex < 0) return;
+
+  const m = missions[currentMissionIndex];
+  if (m.condition(player)) {
+    if (missionStartTime === 0) missionStartTime = performance.now();
+    const timeHeld = (performance.now() - missionStartTime) / 1000;
+    
+    // Для миссии 1 и 3 нужно удерживать условие несколько секунд
+    const holdTime = m.id === 1 ? 3 : (m.id === 3 ? 2 : 0);
+    
+    if (timeHeld >= holdTime) {
+      completeMission(m);
+    }
+  } else {
+    missionStartTime = 0; // сбрасываем таймер, если условие нарушено
+  }
+}
+
+function completeMission(m) {
+  missionCompleted = true;
+  document.getElementById('mission-status').innerText = `Mission: \${m.title} (COMPLETE!)`;
+  document.getElementById('mission-status').style.color = "#4ade80";
+  alert(`Миссия выполнена! Награда: \${m.reward}`);
+  setTimeout(startNextMission, 1000);
+}
 
 // --- ИНИЦИАЛИЗАЦИЯ ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
-// Чуть менее плотный туман для лучшей видимости на маленьких экранах
-scene.fog = new THREE.FogExp2(0x87CEEB, 0.035); 
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.03);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
 camera.position.set(0, 15, 25);
@@ -17,35 +91,36 @@ renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // --- ОСВЕЩЕНИЕ ---
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.7);
 scene.add(hemiLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-dirLight.position.set(50, 100, 50);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+dirLight.position.set(50, 80, 50);
 dirLight.castShadow = true;
 dirLight.shadow.camera.left = -MAP_SIZE;
 dirLight.shadow.camera.right = MAP_SIZE;
 dirLight.shadow.camera.top = MAP_SIZE;
 dirLight.shadow.camera.bottom = -MAP_SIZE;
+dirLight.shadow.mapSize.width = 1024;
+dirLight.shadow.mapSize.height = 1024;
 scene.add(dirLight);
 
-// --- ГЕНЕРАЦИЯ ТЕКСТУРЫ ДОРОГИ (Упрощенная) ---
+// --- ДОРОГА ---
 const roadCanvas = document.createElement('canvas');
-roadCanvas.width = 256; // Меньше разрешение текстуры
+roadCanvas.width = 256;
 roadCanvas.height = 256;
 const ctx = roadCanvas.getContext('2d');
 
 ctx.fillStyle = '#333333';
 ctx.fillRect(0, 0, 256, 256);
-// Меньше "шума" на дороге для производительности
-for(let i=0; i<300; i++) {
+for(let i=0; i<500; i++) {
   const x = Math.random() * 256;
   const y = Math.random() * 256;
   ctx.fillStyle = Math.random() > 0.5 ? '#222' : '#444';
-  ctx.fillRect(x, y, 2, 2);
+  ctx.fillRect(x, y, 1, 1);
 }
 ctx.strokeStyle = '#ffffaa';
-ctx.lineWidth = 6;
+ctx.lineWidth = 4;
 ctx.beginPath();
 ctx.moveTo(0, 128);
 ctx.lineTo(256, 128);
@@ -54,7 +129,7 @@ ctx.stroke();
 const roadTexture = new THREE.CanvasTexture(roadCanvas);
 roadTexture.wrapS = THREE.RepeatWrapping;
 roadTexture.wrapT = THREE.RepeatWrapping;
-roadTexture.repeat.set(1, 1); // Упростили тайлинг
+roadTexture.repeat.set(2, 2);
 
 const floorGeo = new THREE.PlaneGeometry(MAP_SIZE * 2, MAP_SIZE * 2);
 const roadMat = new THREE.MeshStandardMaterial({ map: roadTexture, roughness: 0.8 });
@@ -63,11 +138,11 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// --- ГЕНЕРАЦИЯ ГОРОДА (ОПТИМИЗИРОВАНО) ---
+// --- ГОРОД ---
 function createBuilding(x, z, height, color) {
   const group = new THREE.Group();
   
-  const bGeo = new THREE.BoxGeometry(6, height, 6); // Здания чуть меньше
+  const bGeo = new THREE.BoxGeometry(8, height, 8);
   const bMat = new THREE.MeshStandardMaterial({ 
     color: color, 
     roughness: 0.6, 
@@ -79,28 +154,29 @@ function createBuilding(x, z, height, color) {
   building.receiveShadow = true;
   group.add(building);
 
-  const roofGeo = new THREE.BoxGeometry(6.2, 0.4, 6.2);
+  const roofGeo = new THREE.BoxGeometry(8.2, 0.4, 8.2);
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
   const roof = new THREE.Mesh(roofGeo, roofMat);
   roof.position.set(0, height / 2 + 0.2, 0);
   group.add(roof);
 
-  // ОПТИМИЗАЦИЯ: Меньше окон!
-  const winMat = new THREE.MeshStandardMaterial({ color: 0xffffaa, roughness: 0.2 });
-  const rows = Math.floor(height / 3); // Реже окна
+  const winMat = new THREE.MeshStandardMaterial({ color: 0xffffaa, roughness: 0.2, metalness: 0.5 });
+  const rows = Math.floor(height / 2);
   
   for (let r = 0; r < rows; r++) {
     for (let side = 0; side < 4; side++) {
-      const wGeo = new THREE.BoxGeometry(1.2, 1.2, 0.1); // Окна меньше
+      const wGeo = new THREE.BoxGeometry(1.8, 1.5, 0.1);
       const windowMesh = new THREE.Mesh(wGeo, winMat);
       
       let wx = 0, wz = 0;
-      if (side === 0) { wx = 3; wz = 2.9; }
-      else if (side === 1) { wx = -3; wz = 2.9; }
-      else if (side === 2) { wx = 2.9; wz = 3; }
-      else if (side === 3) { wx = 2.9; wz = -3; }
+      if (side === 0) { wx = 4; wz = 3.9; }
+      else if (side === 1) { wx = -4; wz = 3.9; }
+      else if (side === 2) { wx = 3.9; wz = 4; }
+      else if (side === 3) { wx = 3.9; wz = -4; }
 
-      windowMesh.position.set(wx, (r * 3) + 0.6, wz);
+      windowMesh.position.set(wx, (r * 2) + 0.75, wz);
+      windowMesh.castShadow = false;
+      windowMesh.receiveShadow = false;
       group.add(windowMesh);
     }
   }
@@ -111,29 +187,29 @@ function createBuilding(x, z, height, color) {
 }
 
 const colors = [0xcccccc, 0xd2b48c, 0x8b4513, 0x708090];
-// Здания ставятся реже, чтобы не забивать память телефона
-for (let i = -MAP_SIZE; i <= MAP_SIZE; i += 15) {
-  for (let j = -MAP_SIZE; j <= MAP_SIZE; j += 15) {
+for (let i = -MAP_SIZE; i <= MAP_SIZE; i += 16) {
+  for (let j = -MAP_SIZE; j <= MAP_SIZE; j += 16) {
     if (Math.abs(i) < 10 && Math.abs(j) < 10) continue;
     const h = 6 + Math.random() * 10;
     createBuilding(i, j, h, colors[Math.floor(Math.random() * colors.length)]);
   }
 }
 
-// --- УЛИЧНЫЕ ФОНАРИ (Меньше фонарей) ---
+// --- ФОНАРИ ---
 function createLamp(x, z) {
   const lamp = new THREE.Group();
-  const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 3, 16); // Меньше сегментов
+  const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 4, 16);
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
   const pole = new THREE.Mesh(poleGeo, poleMat);
-  pole.position.y = 1.5;
+  pole.position.y = 2;
   lamp.add(pole);
 
-  const light = new THREE.PointLight(0xffffff, 0.4, 12); // Свет чуть слабее
-  light.position.set(0, 3, 0);
+  const light = new THREE.PointLight(0xffffff, 0.3, 10);
+  light.position.set(0, 4, 0);
   lamp.add(light);
   
   lamp.position.set(x, 0, z);
+  lamp.castShadow = false;
   scene.add(lamp);
 }
 for (let i = -MAP_SIZE; i <= MAP_SIZE; i += 25) {
@@ -142,7 +218,7 @@ for (let i = -MAP_SIZE; i <= MAP_SIZE; i += 25) {
   }
 }
 
-// --- МАШИНА (Упрощенная геометрия) ---
+// --- МАШИНА ---
 const car = new THREE.Group();
 
 const carBodyGeo = new THREE.BoxGeometry(2.2, 1.2, 4.5);
@@ -159,192 +235,149 @@ const carRoof = new THREE.Mesh(carRoofGeo, carRoofMat);
 carRoof.position.set(0, 1.4, 0);
 car.add(carRoof);
 
-const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.8, 16); // Меньше сегментов у колес
+const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.8, 16);
 const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+
 const wheelPositions = [
-  { x: 1, y: 0.6, z: 2.2 },
-  { x: -1, y: 0.6, z: 2.2 },
-  { x: 1, y: 0.6, z: -2.2 },
-  { x: -1, y: 0.6, z: -2.2 }
+  [-0.8, 0.6, -2], [0.8, 0.6, -2], [-0.8, 0.6, 2], [0.8, 0.6, 2]
 ];
+
 wheelPositions.forEach(pos => {
   const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-  wheel.position.set(pos.x, pos.y, pos.z);
-  wheel.rotation.z = Math.PI / 2;
+  wheel.position.set(...pos);
   wheel.castShadow = true;
+  wheel.receiveShadow = true;
   car.add(wheel);
 });
 
-car.position.set(-15, 0, -15);
 scene.add(car);
 
-// Номерной знак
-const plateCanvas = document.createElement('canvas');
-plateCanvas.width = 128; plateCanvas.height = 64; // Меньше текстура номера
-const pCtx = plateCanvas.getContext('2d');
-pCtx.fillStyle = 'white'; pCtx.fillRect(0,0,128,64);
-pCtx.fillStyle = 'black'; pCtx.font = 'bold 30px Arial'; pCtx.textAlign = 'center'; pCtx.textBaseline = 'middle';
-pCtx.fillText('GTA-02', 64, 32);
-const plateTex = new THREE.CanvasTexture(plateCanvas);
-plateTex.colorSpace = THREE.SRGBColorSpace;
-const plateMat = new THREE.MeshStandardMaterial({ map: plateTex });
-const plate = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.05), plateMat);
-plate.position.set(0, 1.2, -2.3);
-car.add(plate);
-
-// --- ИГРОК ---
-const player = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 'red' }));
-player.position.set(0, 0.6, 0);
-scene.add(player);
-
-// --- УПРАВЛЕНИЕ (INPUT) ---
-const keys = { w: false, a: false, s: false, d: false, space: false, e: false };
-
-// Функция для мобильных кнопок
-window.setKey = function(key, value) {
-  keys[key] = value;
+// --- ИГРОК (машина) ---
+const player = {
+  mesh: car,
+  position: new THREE.Vector3(0, 0, 0),
+  rotation: 0,
+  speed: 0,
+  maxSpeed: 60,
+  acceleration: 0.2,
+  deceleration: 0.1,
+  turnSpeed: 0.05,
+  currentSpeed: 0,
+  inCar: true
 };
 
-window.addEventListener('keydown', e => {
-  if (e.code === 'KeyW') keys.w = true; if (e.code === 'KeyA') keys.a = true;
-  if (e.code === 'KeyS') keys.s = true; if (e.code === 'KeyD') keys.d = true;
-  if (e.code === 'Space') keys.space = true; if (e.code === 'KeyE') keys.e = true;
-});
-window.addEventListener('keyup', e => {
-  if (e.code === 'KeyW') keys.w = false; if (e.code === 'KeyA') keys.a = false;
-  if (e.code === 'KeyS') keys.s = false; if (e.code === 'KeyD') keys.d = false;
-  if (e.code === 'Space') keys.space = false; if (e.code === 'KeyE') keys.e = false;
-});
+// --- УПРАВЛЕНИЕ (клавиатура) ---
+const keys = { w: false, a: false, s: false, d: false, e: false, space: false };
 
-let isMouseDown = false, yaw = 0, pitch = 0;
-window.addEventListener('mousedown', () => isMouseDown = true);
-window.addEventListener('mouseup', () => isMouseDown = false);
-window.addEventListener('mousemove', (e) => {
-  if (!isMouseDown) return;
-  yaw -= e.movementX * 0.002;
-  pitch -= e.movementY * 0.002;
-  pitch = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, pitch));
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyW') keys.w = true;
+  if (e.code === 'KeyA') keys.a = true;
+  if (e.code === 'KeyS') keys.s = true;
+  if (e.code === 'KeyD') keys.d = true;
+  if (e.code === 'KeyE') keys.e = true;
+  if (e.code === 'Space') keys.space = true;
 });
 
-let isInCar = false;
-const statusEl = document.getElementById('status');
-const speedEl = document.getElementById('speed');
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'KeyW') keys.w = false;
+  if (e.code === 'KeyA') keys.a = false;
+  if (e.code === 'KeyS') keys.s = false;
+  if (e.code === 'KeyD') keys.d = false;
+  if (e.code === 'KeyE') keys.e = false;
+  if (e.code === 'Space') keys.space = false;
+});
 
-// --- ФИЗИКА И ЛОГИКА ---
-let velocity = new THREE.Vector3();
-const speed = 0.4;
-const jumpSpeed = 1.8;
-const gravity = 0.015;
-let isGrounded = true;
+// --- СЕНСОРНОЕ УПРАВЛЕНИЕ ---
+const btnUp = document.getElementById('btn-up');
+const btnLeft = document.getElementById('btn-left');
+const btnDown = document.getElementById('btn-down');
+const btnRight = document.getElementById('btn-right');
+const btnEnter = document.getElementById('btn-enter');
+const btnJump = document.getElementById('btn-jump');
 
-let carVelocity = 0;
-const carMaxSpeed = 0.8;
-const carAccel = 0.08;
-const carFriction = 0.96;
-const carTurnSpeed = 0.04;
+btnUp.addEventListener('touchstart', (e) => { e.preventDefault(); keys.w = true; }, {passive: false});
+btnUp.addEventListener('touchend', () => keys.w = false);
+btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys.a = true; }, {passive: false});
+btnLeft.addEventListener('touchend', () => keys.a = false);
+btnDown.addEventListener('touchstart', (e) => { e.preventDefault(); keys.s = true; }, {passive: false});
+btnDown.addEventListener('touchend', () => keys.s = false);
+btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys.d = true; }, {passive: false});
+btnRight.addEventListener('touchend', () => keys.d = false);
+btnEnter.addEventListener('touchstart', (e) => { e.preventDefault(); keys.e = true; }, {passive: false});
+btnEnter.addEventListener('touchend', () => keys.e = false);
+btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); keys.space = true; }, {passive: false});
+btnJump.addEventListener('touchend', () => keys.space = false);
 
-function checkBoundary(pos) {
-  const limit = MAP_SIZE - BOUNDARY_PADDING;
-  if (pos.x > limit) pos.x = limit;
-  if (pos.x < -limit) pos.x = -limit;
-  if (pos.z > limit) pos.z = limit;
-  if (pos.z < -limit) pos.z = -limit;
-}
+// --- ОБНОВЛЕНИЕ ИГРЫ ---
+function update() {
+  // Миссии
+  checkMissionProgress(player);
 
-function updatePlayer() {
-  velocity.set(0, 0, 0);
-  if (keys.w) velocity.z -= speed; if (keys.s) velocity.z += speed;
-  if (keys.a) velocity.x -= speed; if (keys.d) velocity.x += speed;
-  if (velocity.length() > 0) velocity.normalize().multiplyScalar(speed);
-
-  player.position.x += velocity.x;
-  player.position.z += velocity.z;
-  checkBoundary(player.position);
-
-  if (!isGrounded) {
-    player.position.y -= gravity;
-    if (player.position.y <= 0.6) { player.position.y = 0.6; isGrounded = true; }
-  } else if (keys.space) {
-    player.position.y += jumpSpeed;
-    isGrounded = false;
-  }
-}
-
-function updateCar() {
-  if (keys.w) carVelocity += carAccel; 
-  if (keys.s) carVelocity -= carAccel;
-  carVelocity *= carFriction;
-  
-  if (Math.abs(carVelocity) > 0.01) {
-    if (keys.a) car.rotation.y += carTurnSpeed * (carVelocity / carMaxSpeed);
-    if (keys.d) car.rotation.y -= carTurnSpeed * (carVelocity / carMaxSpeed);
-  }
-
-  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(car.quaternion);
-  car.position.add(forward.multiplyScalar(carVelocity));
-  
-  car.children.forEach(child => {
-    if (child.geometry instanceof THREE.CylinderGeometry) {
-      child.rotation.x += carVelocity * 2;
+  // Движение
+  if (player.inCar) {
+    // Ускорение
+    if (keys.w && player.speed < player.maxSpeed) {
+      player.speed += player.acceleration;
+    } else if (keys.s) {
+      player.speed = Math.max(0, player.speed - player.acceleration * 2);
+    } else {
+      player.speed = Math.max(0, player.speed - player.deceleration);
     }
-  });
 
-  checkBoundary(car.position);
-}
+    // Поворот
+    if (keys.a) player.rotation += player.turnSpeed;
+    if (keys.d) player.rotation -= player.turnSpeed;
 
-function checkEnterCar() {
-  if (keys.e) {
-    const target = isInCar ? player : car;
-    const dist = player.position.distanceTo(target.position);
-    if (dist < 5) {
-      isInCar = !isInCar;
-      keys.e = false;
-      statusEl.textContent = isInCar ? 'Status: In Vehicle' : 'Status: On Foot';
-    }
-  }
-}
+    // Применение движения
+    const moveDistance = player.speed;
+    player.position.x += Math.sin(player.rotation) * moveDistance;
+    player.position.z += Math.cos(player.rotation) * moveDistance;
 
-const targetPos = new THREE.Vector3();
-function updateCamera() {
-  if (isInCar) {
-    const offset = new THREE.Vector3(0, 3, 5).applyAxisAngle(new THREE.Vector3(0, 1, 0), car.rotation.y);
-    camera.position.copy(car.position).add(offset);
-    camera.lookAt(car.position);
-    
-    const currentSpeed = Math.abs(carVelocity) * 100;
-    speedEl.textContent = `Speed: \${Math.floor(currentSpeed)} km/h`;
+    // Ограничение карты
+    player.position.x = Math.max(-MAP_SIZE + BOUNDARY_PADDING, Math.min(MAP_SIZE - BOUNDARY_PADDING, player.position.x));
+    player.position.z = Math.max(-MAP_SIZE + BOUNDARY_PADDING, Math.min(MAP_SIZE - BOUNDARY_PADDING, player.position.z));
+
+    // Синхронизация машины с игроком
+    player.mesh.position.set(player.position.x, 0, player.position.z);
+    player.mesh.rotation.y = player.rotation;
+
+    // Скорость для UI
+    player.currentSpeed = player.speed * 3.6; // м/с в км/ч
   } else {
-    const offset = new THREE.Vector3(0, 7, 13);
-    const moveAngle = Math.atan2(velocity.x, velocity.z) + Math.PI;
-    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), moveAngle);
-    targetPos.copy(player.position).add(offset);
-    camera.position.lerp(targetPos, 0.1); 
-
-    const radius = 13.7;
-    const vOffset = Math.sin(pitch) * radius;
-    const hRadius = Math.cos(pitch) * radius;
-    camera.position.set(
-      player.position.x + Math.sin(yaw) * hRadius,
-      player.position.y + 7 + vOffset,
-      player.position.z + Math.cos(yaw) * hRadius
-    );
-    camera.lookAt(player.position.x, player.position.y, player.position.z);
-    
-    speedEl.textContent = `Speed: 0 km/h`;
+    // Пешком (упрощено)
+    if (keys.w) player.position.z -= 0.2;
+    if (keys.s) player.position.z += 0.2;
+    if (keys.a) player.position.x -= 0.2;
+    if (keys.d) player.position.x += 0.2;
+    player.mesh.position.set(player.position.x, 0, player.position.z);
+    player.currentSpeed = 0;
   }
+
+  // Вход/выход из авто
+  if (keys.e) {
+    keys.e = false; // сброс, чтобы не срабатывало постоянно
+    player.inCar = !player.inCar;
+    document.getElementById('status').innerText = player.inCar ? "Status: In Car" : "Status: On Foot";
+    document.getElementById('status').style.color = player.inCar ? "#4ade80" : "#f87171";
+  }
+
+  // Камера следует за игроком
+  camera.position.x = player.position.x;
+  camera.position.z = player.position.z;
+  camera.lookAt(player.position.x, 0, player.position.z);
 }
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
+// --- ОТРИСОВКА ---
 function animate() {
   requestAnimationFrame(animate);
-  if (isInCar) updateCar(); else updatePlayer();
-  checkEnterCar();
-  updateCamera();
+  update();
+  
+  // Обновление UI
+  document.getElementById('speed').innerText = `Speed: \${Math.floor(player.currentSpeed)} km/h`;
+  
   renderer.render(scene, camera);
 }
+
+// --- ЗАПУСК ---
+startNextMission(); // первая миссия при старте
 animate();

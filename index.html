@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>GTA Mini: Mobile & Desktop</title>
+  <!-- Блокируем зум и фиксируем горизонтальную ориентацию -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GTA Mini: Landscape Missions</title>
   <style>
     body { 
       margin: 0; 
@@ -11,104 +12,121 @@
       background-color: #111; 
       font-family: 'Segoe UI', sans-serif; 
       color: white; 
-      touch-action: none; /* Отключаем зум и скролл страницы */
+      touch-action: none;
+      /* Принудительный ландшафт через CSS (работает на многих мобильных браузерах) */
+      transform: rotate(0deg);
     }
+
+    /* Поворот экрана для мобильных (ландшафт) */
+    @media (max-width: 768px) and (orientation: portrait) {
+      body {
+        transform: rotate(90deg);
+        transform-origin: top left;
+        width: 100vh;
+        height: 100vw;
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+    }
+
     canvas { display: block; }
 
-    /* --- UI Панель --- */
+    /* UI — левый верхний угол */
     #ui {
       position: absolute; 
-      top: 20px; 
-      left: 20px;
-      background: rgba(0, 0, 0, 0.6); 
-      padding: 15px; 
+      top: 15px; 
+      left: 15px;
+      background: rgba(0, 0, 0, 0.7); 
+      padding: 12px; 
       border-radius: 8px;
       pointer-events: none; 
       text-shadow: 1px 1px 2px black;
-      max-width: 350px; 
+      max-width: 300px; 
       border: 1px solid rgba(255,255,255,0.2);
       z-index: 10;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
     }
     h3 { margin-top: 0; color: #4ade80; }
-    .stat { font-size: 1em; margin: 5px 0; opacity: 0.8; }
-    #status { font-size: 1.1em; margin-top: 15px; color: #f87171; font-weight: bold; }
-    #speed { font-size: 1.1em; color: #fbbf24; font-weight: bold; }
+    .stat { font-size: 0.95em; margin: 4px 0; opacity: 0.9; }
+    #speed, #mission-status { font-size: 1.1em; }
+    #speed { color: #fbbf24; }
+    #mission-status { color: #f43f5e; }
 
-    /* --- МОБИЛЬНЫЕ КНОПКИ (Скрыты на ПК) --- */
-    #mobile-controls {
-      display: none; /* Скрыто по умолчанию */
-      position: fixed;
+    /* Сенсорные кнопки — левый нижний угол */
+    #controls {
+      position: absolute;
       bottom: 20px;
       left: 20px;
-      width: 200px;
-      z-index: 100;
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      grid-template-rows: repeat(3, 60px);
+      gap: 10px;
       pointer-events: auto;
+      z-index: 10;
     }
-
-    .control-group {
-      background: rgba(0, 0, 0, 0.7);
-      padding: 10px;
-      border-radius: 15px;
-      margin-bottom: 15px;
-      backdrop-filter: blur(5px);
-    }
-
     .btn {
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255,255,255,0.4);
       color: white;
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
+      border-radius: 12px;
       font-size: 1.2em;
-      cursor: pointer;
-      display: inline-flex;
+      display: flex;
       align-items: center;
       justify-content: center;
-      margin: 2px;
       user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
+    .btn:active { background: rgba(255, 255, 255, 0.4); }
+    #btn-enter { grid-column: 2; grid-row: 3; background: rgba(34, 197, 94, 0.3); border-color: rgba(34, 197, 94, 0.6); }
+    #btn-enter:active { background: rgba(34, 197, 94, 0.6); }
 
-    .btn:active { background: rgba(255, 255, 255, 0.3); }
-
-    #jump-btn {
-      position: fixed;
+    /* Кнопка прыжка — правый нижний угол */
+    #btn-jump {
+      position: absolute;
       bottom: 20px;
-      right: 20px;
-      width: 70px;
-      height: 70px;
-      border-radius: 50%;
-      background: linear-gradient(145deg, #f87171, #ef4444);
-      border: none;
-      color: white;
-      font-size: 1.5em;
-      box-shadow: 0 4px 15px rgba(248, 113, 113, 0.4);
-      z-index: 100;
-      display: none; /* Скрыто на ПК */
-    }
-
-    #enter-btn {
-      position: fixed;
-      bottom: 100px;
       right: 20px;
       width: 60px;
       height: 60px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(248, 113, 113, 0.3);
+      border: 1px solid rgba(248, 113, 113, 0.6);
+      border-radius: 12px;
       color: white;
       font-size: 1.2em;
-      z-index: 100;
-      display: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      pointer-events: auto;
+      z-index: 10;
     }
+    #btn-jump:active { background: rgba(248, 113, 113, 0.6); }
 
-    /* --- АДАПТИВНОСТЬ --- */
-    @media (max-width: 768px) {
-      #mobile-controls { display: block; }
-      #jump-btn, #enter-btn { display: block; }
-      #ui { max-width: 90%; left: 50%; transform: translateX(-50%); }
+    /* Всплывающее окно миссий */
+    #mission-modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.9);
+      padding: 20px;
+      border-radius: 12px;
+      border: 2px solid #4ade80;
+      text-align: center;
+      pointer-events: auto;
+      z-index: 20;
+      display: none;
+      max-width: 300px;
+    }
+    #mission-modal h3 { color: #4ade80; margin-top: 0; }
+    #mission-modal p { line-height: 1.5; }
+    .btn-close {
+      margin-top: 15px;
+      padding: 8px 16px;
+      background: #f43f5e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -116,25 +134,29 @@
 
   <!-- Интерфейс -->
   <div id="ui">
-    <h3>GTA Mini: Mobile Ready</h3>
-    <p class="stat">Desktop: WASD + Mouse</p>
-    <p class="stat">Mobile: Touch Buttons</p>
-    <p id="status">Status: On Foot</p>
-    <p id="speed">Speed: 0 km/h</p>
+    <h3>GTA Mini: Missions</h3>
+    <p class="stat">Горизонтальный режим</p>
+    <p id="mission-status" class="stat">Mission: None</p>
+    <p id="speed" class="stat">Speed: 0 km/h</p>
   </div>
 
-  <!-- Мобильные кнопки -->
-  <div id="mobile-controls">
-    <div class="control-group">
-      <div class="btn" id="btn-up" ontouchstart="setKey('w', true)" ontouchend="setKey('w', false)">▲</div>
-      <div class="btn" id="btn-left" ontouchstart="setKey('a', true)" ontouchend="setKey('a', false)">◀</div>
-      <div class="btn" id="btn-down" ontouchstart="setKey('s', true)" ontouchend="setKey('s', false)">▼</div>
-      <div class="btn" id="btn-right" ontouchstart="setKey('d', true)" ontouchend="setKey('d', false)">▶</div>
-    </div>
+  <!-- Сенсорные кнопки -->
+  <div id="controls">
+    <div class="btn" id="btn-up">↑</div>
+    <div class="btn" id="btn-left">←</div>
+    <div class="btn" id="btn-down">↓</div>
+    <div class="btn" id="btn-right">→</div>
+    <div class="btn" id="btn-enter">E</div>
   </div>
 
-  <button id="jump-btn" ontouchstart="setKey('space', true)" ontouchend="setKey('space', false)">⬆️</button>
-  <button id="enter-btn" ontouchstart="setKey('e', true)" ontouchend="setKey('e', false)">E</button>
+  <div id="btn-jump">⏫</div>
+
+  <!-- Модальное окно миссий -->
+  <div id="mission-modal">
+    <h3 id="mission-title">Новая миссия</h3>
+    <p id="mission-desc">Описание миссии</p>
+    <button class="btn-close" onclick="closeMissionModal()">Начать</button>
+  </div>
 
   <!-- Подключаем Three.js -->
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
