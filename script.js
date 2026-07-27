@@ -1,11 +1,12 @@
 // --- КОНФИГУРАЦИЯ ---
-const MAP_SIZE = 80;
+const MAP_SIZE = 60; // Уменьшили карту для мобилок
 const BOUNDARY_PADDING = 4;
 
 // --- ИНИЦИАЛИЗАЦИЯ ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
-scene.fog = new THREE.FogExp2(0x87CEEB, 0.025);
+// Чуть менее плотный туман для лучшей видимости на маленьких экранах
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.035); 
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
 camera.position.set(0, 15, 25);
@@ -28,31 +29,32 @@ dirLight.shadow.camera.top = MAP_SIZE;
 dirLight.shadow.camera.bottom = -MAP_SIZE;
 scene.add(dirLight);
 
-// --- ГЕНЕРАЦИЯ ТЕКСТУРЫ ДОРОГИ ---
+// --- ГЕНЕРАЦИЯ ТЕКСТУРЫ ДОРОГИ (Упрощенная) ---
 const roadCanvas = document.createElement('canvas');
-roadCanvas.width = 512;
-roadCanvas.height = 512;
+roadCanvas.width = 256; // Меньше разрешение текстуры
+roadCanvas.height = 256;
 const ctx = roadCanvas.getContext('2d');
 
 ctx.fillStyle = '#333333';
-ctx.fillRect(0, 0, 512, 512);
-for (let i = 0; i < 1000; i++) {
-  const x = Math.random() * 512;
-  const y = Math.random() * 512;
+ctx.fillRect(0, 0, 256, 256);
+// Меньше "шума" на дороге для производительности
+for(let i=0; i<300; i++) {
+  const x = Math.random() * 256;
+  const y = Math.random() * 256;
   ctx.fillStyle = Math.random() > 0.5 ? '#222' : '#444';
   ctx.fillRect(x, y, 2, 2);
 }
 ctx.strokeStyle = '#ffffaa';
-ctx.lineWidth = 8;
+ctx.lineWidth = 6;
 ctx.beginPath();
-ctx.moveTo(0, 256);
-ctx.lineTo(512, 256);
+ctx.moveTo(0, 128);
+ctx.lineTo(256, 128);
 ctx.stroke();
 
 const roadTexture = new THREE.CanvasTexture(roadCanvas);
 roadTexture.wrapS = THREE.RepeatWrapping;
 roadTexture.wrapT = THREE.RepeatWrapping;
-roadTexture.repeat.set(2, 2);
+roadTexture.repeat.set(1, 1); // Упростили тайлинг
 
 const floorGeo = new THREE.PlaneGeometry(MAP_SIZE * 2, MAP_SIZE * 2);
 const roadMat = new THREE.MeshStandardMaterial({ map: roadTexture, roughness: 0.8 });
@@ -61,15 +63,15 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// --- ГЕНЕРАЦИЯ ГОРОДА (ЗДАНИЯ) ---
+// --- ГЕНЕРАЦИЯ ГОРОДА (ОПТИМИЗИРОВАНО) ---
 function createBuilding(x, z, height, color) {
   const group = new THREE.Group();
-
-  const bGeo = new THREE.BoxGeometry(8, height, 8);
-  const bMat = new THREE.MeshStandardMaterial({
-    color: color,
-    roughness: 0.6,
-    metalness: 0.1
+  
+  const bGeo = new THREE.BoxGeometry(6, height, 6); // Здания чуть меньше
+  const bMat = new THREE.MeshStandardMaterial({ 
+    color: color, 
+    roughness: 0.6, 
+    metalness: 0.1 
   });
   const building = new THREE.Mesh(bGeo, bMat);
   building.position.set(0, height / 2, 0);
@@ -77,68 +79,70 @@ function createBuilding(x, z, height, color) {
   building.receiveShadow = true;
   group.add(building);
 
-  const roofGeo = new THREE.BoxGeometry(8.2, 0.4, 8.2);
+  const roofGeo = new THREE.BoxGeometry(6.2, 0.4, 6.2);
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
   const roof = new THREE.Mesh(roofGeo, roofMat);
   roof.position.set(0, height / 2 + 0.2, 0);
   group.add(roof);
 
-  const winMat = new THREE.MeshStandardMaterial({ color: 0xffffaa, roughness: 0.2, metalness: 0.5 });
-  const rows = Math.floor(height / 2);
-
+  // ОПТИМИЗАЦИЯ: Меньше окон!
+  const winMat = new THREE.MeshStandardMaterial({ color: 0xffffaa, roughness: 0.2 });
+  const rows = Math.floor(height / 3); // Реже окна
+  
   for (let r = 0; r < rows; r++) {
     for (let side = 0; side < 4; side++) {
-      const wGeo = new THREE.BoxGeometry(1.8, 1.5, 0.1);
+      const wGeo = new THREE.BoxGeometry(1.2, 1.2, 0.1); // Окна меньше
       const windowMesh = new THREE.Mesh(wGeo, winMat);
-
+      
       let wx = 0, wz = 0;
-      if (side === 0) { wx = 4; wz = 3.9; }
-      else if (side === 1) { wx = -4; wz = 3.9; }
-      else if (side === 2) { wx = 3.9; wz = 4; }
-      else if (side === 3) { wx = 3.9; wz = -4; }
+      if (side === 0) { wx = 3; wz = 2.9; }
+      else if (side === 1) { wx = -3; wz = 2.9; }
+      else if (side === 2) { wx = 2.9; wz = 3; }
+      else if (side === 3) { wx = 2.9; wz = -3; }
 
-      windowMesh.position.set(wx, (r * 2) + 0.75, wz);
+      windowMesh.position.set(wx, (r * 3) + 0.6, wz);
       group.add(windowMesh);
     }
   }
-
+  
   group.position.set(x, 0, z);
   scene.add(group);
   return group;
 }
 
 const colors = [0xcccccc, 0xd2b48c, 0x8b4513, 0x708090];
-for (let i = -MAP_SIZE; i <= MAP_SIZE; i += 12) {
-  for (let j = -MAP_SIZE; j <= MAP_SIZE; j += 12) {
+// Здания ставятся реже, чтобы не забивать память телефона
+for (let i = -MAP_SIZE; i <= MAP_SIZE; i += 15) {
+  for (let j = -MAP_SIZE; j <= MAP_SIZE; j += 15) {
     if (Math.abs(i) < 10 && Math.abs(j) < 10) continue;
-    const h = 6 + Math.random() * 12;
+    const h = 6 + Math.random() * 10;
     createBuilding(i, j, h, colors[Math.floor(Math.random() * colors.length)]);
   }
 }
 
-// --- УЛИЧНЫЕ ФОНАРИ ---
+// --- УЛИЧНЫЕ ФОНАРИ (Меньше фонарей) ---
 function createLamp(x, z) {
   const lamp = new THREE.Group();
-  const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 4, 32);
+  const poleGeo = new THREE.CylinderGeometry(0.1, 0.1, 3, 16); // Меньше сегментов
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
   const pole = new THREE.Mesh(poleGeo, poleMat);
-  pole.position.y = 2;
+  pole.position.y = 1.5;
   lamp.add(pole);
 
-  const light = new THREE.PointLight(0xffffff, 0.5, 15);
-  light.position.set(0, 4, 0);
+  const light = new THREE.PointLight(0xffffff, 0.4, 12); // Свет чуть слабее
+  light.position.set(0, 3, 0);
   lamp.add(light);
-
+  
   lamp.position.set(x, 0, z);
   scene.add(lamp);
 }
-for (let i = -MAP_SIZE; i <= MAP_SIZE; i += 20) {
-  for (let j = -MAP_SIZE; j <= MAP_SIZE; j += 20) {
+for (let i = -MAP_SIZE; i <= MAP_SIZE; i += 25) {
+  for (let j = -MAP_SIZE; j <= MAP_SIZE; j += 25) {
     createLamp(i, j);
   }
 }
 
-// --- МАШИНА ---
+// --- МАШИНА (Упрощенная геометрия) ---
 const car = new THREE.Group();
 
 const carBodyGeo = new THREE.BoxGeometry(2.2, 1.2, 4.5);
@@ -155,7 +159,7 @@ const carRoof = new THREE.Mesh(carRoofGeo, carRoofMat);
 carRoof.position.set(0, 1.4, 0);
 car.add(carRoof);
 
-const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.8, 32);
+const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.8, 16); // Меньше сегментов у колес
 const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
 const wheelPositions = [
   { x: 1, y: 0.6, z: 2.2 },
@@ -176,11 +180,11 @@ scene.add(car);
 
 // Номерной знак
 const plateCanvas = document.createElement('canvas');
-plateCanvas.width = 256; plateCanvas.height = 128;
+plateCanvas.width = 128; plateCanvas.height = 64; // Меньше текстура номера
 const pCtx = plateCanvas.getContext('2d');
-pCtx.fillStyle = 'white'; pCtx.fillRect(0, 0, 256, 128);
-pCtx.fillStyle = 'black'; pCtx.font = 'bold 60px Arial'; pCtx.textAlign = 'center'; pCtx.textBaseline = 'middle';
-pCtx.fillText('GTA-02', 128, 64);
+pCtx.fillStyle = 'white'; pCtx.fillRect(0,0,128,64);
+pCtx.fillStyle = 'black'; pCtx.font = 'bold 30px Arial'; pCtx.textAlign = 'center'; pCtx.textBaseline = 'middle';
+pCtx.fillText('GTA-02', 64, 32);
 const plateTex = new THREE.CanvasTexture(plateCanvas);
 plateTex.colorSpace = THREE.SRGBColorSpace;
 const plateMat = new THREE.MeshStandardMaterial({ map: plateTex });
@@ -195,6 +199,12 @@ scene.add(player);
 
 // --- УПРАВЛЕНИЕ (INPUT) ---
 const keys = { w: false, a: false, s: false, d: false, space: false, e: false };
+
+// Функция для мобильных кнопок
+window.setKey = function(key, value) {
+  keys[key] = value;
+};
+
 window.addEventListener('keydown', e => {
   if (e.code === 'KeyW') keys.w = true; if (e.code === 'KeyA') keys.a = true;
   if (e.code === 'KeyS') keys.s = true; if (e.code === 'KeyD') keys.d = true;
@@ -213,7 +223,7 @@ window.addEventListener('mousemove', (e) => {
   if (!isMouseDown) return;
   yaw -= e.movementX * 0.002;
   pitch -= e.movementY * 0.002;
-  pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch));
+  pitch = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, pitch));
 });
 
 let isInCar = false;
@@ -261,10 +271,10 @@ function updatePlayer() {
 }
 
 function updateCar() {
-  if (keys.w) carVelocity += carAccel;
+  if (keys.w) carVelocity += carAccel; 
   if (keys.s) carVelocity -= carAccel;
   carVelocity *= carFriction;
-
+  
   if (Math.abs(carVelocity) > 0.01) {
     if (keys.a) car.rotation.y += carTurnSpeed * (carVelocity / carMaxSpeed);
     if (keys.d) car.rotation.y -= carTurnSpeed * (carVelocity / carMaxSpeed);
@@ -272,7 +282,7 @@ function updateCar() {
 
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(car.quaternion);
   car.position.add(forward.multiplyScalar(carVelocity));
-
+  
   car.children.forEach(child => {
     if (child.geometry instanceof THREE.CylinderGeometry) {
       child.rotation.x += carVelocity * 2;
@@ -300,7 +310,7 @@ function updateCamera() {
     const offset = new THREE.Vector3(0, 3, 5).applyAxisAngle(new THREE.Vector3(0, 1, 0), car.rotation.y);
     camera.position.copy(car.position).add(offset);
     camera.lookAt(car.position);
-
+    
     const currentSpeed = Math.abs(carVelocity) * 100;
     speedEl.textContent = `Speed: \${Math.floor(currentSpeed)} km/h`;
   } else {
@@ -308,7 +318,7 @@ function updateCamera() {
     const moveAngle = Math.atan2(velocity.x, velocity.z) + Math.PI;
     offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), moveAngle);
     targetPos.copy(player.position).add(offset);
-    camera.position.lerp(targetPos, 0.1);
+    camera.position.lerp(targetPos, 0.1); 
 
     const radius = 13.7;
     const vOffset = Math.sin(pitch) * radius;
@@ -319,7 +329,7 @@ function updateCamera() {
       player.position.z + Math.cos(yaw) * hRadius
     );
     camera.lookAt(player.position.x, player.position.y, player.position.z);
-
+    
     speedEl.textContent = `Speed: 0 km/h`;
   }
 }
@@ -332,13 +342,7 @@ window.addEventListener('resize', () => {
 
 function animate() {
   requestAnimationFrame(animate);
-  if (isInCar) {
-    updateCar();
-    player.position.copy(car.position);
-
-   } else {
-     updatePlayer(); 
-    }
+  if (isInCar) updateCar(); else updatePlayer();
   checkEnterCar();
   updateCamera();
   renderer.render(scene, camera);

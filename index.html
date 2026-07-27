@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>GTA Mini: Mobile & Desktop</title>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      background-color: #111; 
+      font-family: 'Segoe UI', sans-serif; 
+      color: white; 
+      touch-action: none; /* Отключаем зум и скролл страницы */
+    }
+    canvas { display: block; }
+
+    /* --- UI Панель --- */
+    #ui {
+      position: absolute; 
+      top: 20px; 
+      left: 20px;
+      background: rgba(0, 0, 0, 0.6); 
+      padding: 15px; 
+      border-radius: 8px;
+      pointer-events: none; 
+      text-shadow: 1px 1px 2px black;
+      max-width: 350px; 
+      border: 1px solid rgba(255,255,255,0.2);
+      z-index: 10;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    h3 { margin-top: 0; color: #4ade80; }
+    .stat { font-size: 1em; margin: 5px 0; opacity: 0.8; }
+    #status { font-size: 1.1em; margin-top: 15px; color: #f87171; font-weight: bold; }
+    #speed { font-size: 1.1em; color: #fbbf24; font-weight: bold; }
+
+    /* --- МОБИЛЬНЫЕ КНОПКИ (Скрыты на ПК) --- */
+    #mobile-controls {
+      display: none; /* Скрыто по умолчанию */
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: 200px;
+      z-index: 100;
+      pointer-events: auto;
+    }
+
+    .control-group {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 15px;
+      margin-bottom: 15px;
+      backdrop-filter: blur(5px);
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      font-size: 1.2em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 2px;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active { background: rgba(255, 255, 255, 0.3); }
+
+    #jump-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #f87171, #ef4444);
+      border: none;
+      color: white;
+      font-size: 1.5em;
+      box-shadow: 0 4px 15px rgba(248, 113, 113, 0.4);
+      z-index: 100;
+      display: none; /* Скрыто на ПК */
+    }
+
+    #enter-btn {
+      position: fixed;
+      bottom: 100px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      font-size: 1.2em;
+      z-index: 100;
+      display: none;
+    }
+
+    /* --- АДАПТИВНОСТЬ --- */
+    @media (max-width: 768px) {
+      #mobile-controls { display: block; }
+      #jump-btn, #enter-btn { display: block; }
+      #ui { max-width: 90%; left: 50%; transform: translateX(-50%); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Интерфейс -->
+  <div id="ui">
+    <h3>GTA Mini: Mobile Ready</h3>
+    <p class="stat">Desktop: WASD + Mouse</p>
+    <p class="stat">Mobile: Touch Buttons</p>
+    <p id="status">Status: On Foot</p>
+    <p id="speed">Speed: 0 km/h</p>
+  </div>
+
+  <!-- Мобильные кнопки -->
+  <div id="mobile-controls">
+    <div class="control-group">
+      <div class="btn" id="btn-up" ontouchstart="setKey('w', true)" ontouchend="setKey('w', false)">▲</div>
+      <div class="btn" id="btn-left" ontouchstart="setKey('a', true)" ontouchend="setKey('a', false)">◀</div>
+      <div class="btn" id="btn-down" ontouchstart="setKey('s', true)" ontouchend="setKey('s', false)">▼</div>
+      <div class="btn" id="btn-right" ontouchstart="setKey('d', true)" ontouchend="setKey('d', false)">▶</div>
+    </div>
+  </div>
+
+  <button id="jump-btn" ontouchstart="setKey('space', true)" ontouchend="setKey('space', false)">⬆️</button>
+  <button id="enter-btn" ontouchstart="setKey('e', true)" ontouchend="setKey('e', false)">E</button>
+
+  <!-- Подключаем Three.js -->
+  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+  
+  <!-- Подключаем наш скрипт -->
+  <script src="script.js"></script>
+</body>
+</html>
