@@ -2,172 +2,220 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <!-- viewport для мобильных: без зума, фиксированный масштаб -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>GTA Mini: Cross-Platform</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GTA Mini: No ImportMap</title>
   <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background-color: #111;
-      font-family: 'Segoe UI', sans-serif;
-      color: white;
-      touch-action: none; /* отключаем зум и скролл страницы */
-    }
-
+    body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; color: white; }
     canvas { display: block; }
-
-    /* --- UI (левый верхний угол) --- */
     #ui {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 12px;
-      border-radius: 8px;
-      pointer-events: none;
-      text-shadow: 1px 1px 2px black;
-      max-width: 300px;
-      border: 1px solid rgba(255,255,255,0.2);
-      z-index: 10;
+      position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.75); padding: 12px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.2); pointer-events: none; max-width: 300px; z-index: 10;
     }
-    h3 { margin-top: 0; color: #4ade80; }
-    .stat { font-size: 0.95em; margin: 4px 0; opacity: 0.9; }
-    #speed, #mission-status { font-size: 1.1em; }
-    #speed { color: #fbbf24; }
-    #mission-status { color: #f43f5e; }
-
-    /* --- Сенсорные кнопки (левый нижний угол) --- */
+    .stat { margin: 4px 0; opacity: 0.9; }
+    #speed { color: #fbbf24; font-weight: bold; }
+    
+    /* Кнопки управления */
     #controls {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      display: grid;
-      grid-template-columns: repeat(3, 60px);
-      grid-template-rows: repeat(3, 60px);
-      gap: 10px;
-      pointer-events: auto;
-      z-index: 10;
+      position: absolute; bottom: 20px; left: 20px; display: grid; grid-template-columns: repeat(3, 60px);
+      grid-template-rows: repeat(3, 60px); gap: 10px; pointer-events: auto; z-index: 10;
     }
     .btn {
-      background: rgba(255, 255, 255, 0.2);
-      border: 1px solid rgba(255,255,255,0.4);
-      color: white;
-      border-radius: 12px;
-      font-size: 1.2em;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
+      background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255,255,255,0.3); color: white;
+      border-radius: 12px; font-size: 1.2em; display: flex; align-items: center; justify-content: center;
     }
     .btn:active { background: rgba(255, 255, 255, 0.4); }
-    #btn-enter { grid-column: 2; grid-row: 3; background: rgba(34, 197, 94, 0.3); border-color: rgba(34, 197, 94, 0.6); }
+    #btn-enter { grid-column: 2; grid-row: 3; background: rgba(34, 197, 94, 0.3); }
     #btn-enter:active { background: rgba(34, 197, 94, 0.6); }
-
-    /* --- Кнопка прыжка (правый нижний угол) --- */
-    #btn-jump {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      width: 60px;
-      height: 60px;
-      background: rgba(248, 113, 113, 0.3);
-      border: 1px solid rgba(248, 113, 113, 0.6);
-      border-radius: 12px;
-      color: white;
-      font-size: 1.2em;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      pointer-events: auto;
-      z-index: 10;
+    
+    .floating-btn {
+      position: absolute; width: 60px; height: 60px;
+      background: rgba(100, 100, 100, 0.3); border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 12px; color: white; font-size: 1.2em; display: flex; align-items: center; justify-content: center;
+      user-select: none; pointer-events: auto; z-index: 10;
     }
-    #btn-jump:active { background: rgba(248, 113, 113, 0.6); }
-
-    /* --- Модальное окно миссий (по центру) --- */
-    #mission-modal {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.9);
-      padding: 20px;
-      border-radius: 12px;
-      border: 2px solid #4ade80;
-      text-align: center;
-      pointer-events: auto;
-      z-index: 20;
-      display: none;
-      max-width: 90vw;
-      width: 80%;
-    }
-    #mission-modal h3 { color: #4ade80; margin-top: 0; }
-    #mission-modal p { line-height: 1.5; }
-    .btn-close {
-      margin-top: 15px;
-      padding: 8px 16px;
-      background: #f43f5e;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    /* --- Горизонтальный режим на мобильных --- */
-    @media (max-width: 768px) and (orientation: portrait) {
-      body {
-        transform: rotate(90deg);
-        transform-origin: top left;
-        width: 100vh;
-        height: 100vw;
-        position: absolute;
-        top: 0;
-        left: 0;
-      }
-      #ui { top: 20px; left: 20px; }
-      #controls { bottom: 20px; left: 20px; }
-      #btn-jump { bottom: 20px; right: 20px; }
-      #mission-modal {
-        max-width: 85vw;
-        padding: 15px;
-      }
-    }
+    #btn-jump { bottom: 90px; right: 20px; background: rgba(248, 113, 113, 0.3); }
+    #btn-camera { bottom: 20px; right: 20px; background: rgba(139, 90, 218, 0.3); }
   </style>
+
+  <!-- Подключаем библиотеку как обычный скрипт. Она создаст глобальную переменную THREE -->
+  <script src="./three.min.js"></script>
 </head>
 <body>
 
-  <!-- Интерфейс -->
   <div id="ui">
-    <h3>GTA Mini: Cross-Platform</h3>
-    <p class="stat">ПК: WASD + Пробел | Телефон: кнопки</p>
-    <p id="mission-status" class="stat">Mission: None</p>
-    <p id="speed" class="stat">Speed: 0 km/h</p>
+    <h3 style="margin:0; color:#4ade80;">GTA Mini: Fixed & Rendered</h3>
+    <p class="stat">ПК: WASD+E+C \| Телефон: кнопки</p>
+    <p class="stat"><span id="mode-indicator" style="color:#fbbf24;">Mode: Car</span></p>
+    <p class="stat"><span id="speed" style="color:#fbbf24;">Speed: 0 km/h</span></p>
   </div>
 
-  <!-- Сенсорные кнопки -->
   <div id="controls">
-    <div class="btn" id="btn-up">↑</div>
-    <div class="btn" id="btn-left">←</div>
-    <div class="btn" id="btn-down">↓</div>
-    <div class="btn" id="btn-right">→</div>
+    <div class="btn">↑</div>
+    <div class="btn">←</div>
+    <div class="btn">↓</div>
+    <div class="btn">→</div>
     <div class="btn" id="btn-enter">E</div>
   </div>
 
-  <div id="btn-jump">⏫</div>
+  <div class="floating-btn" id="btn-jump">J</div>
+  <div class="floating-btn" id="btn-camera">C</div>
 
-  <!-- Модальное окно миссий -->
-  <div id="mission-modal">
-    <h3 id="mission-title">Новая миссия</h3>
-    <p id="mission-desc">Описание миссии</p>
-    <button class="btn-close" onclick="closeMissionModal()">Начать</button>
-  </div>
+  <!-- Ваш игровой код теперь просто использует переменную THREE -->
+  <script>
+    const MAP_SIZE = 60;
+    
+    // Инициализация сцены (теперь не нужен import * as THREE from 'three')
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+    scene.fog = new THREE.Fog(0x111111, 20, 80);
 
-  <!-- Подключаем Three.js -->
-  <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  
-  <!-- Наш скрипт -->
-  <script src="script.js"></script>
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, 12, 15);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+
+    // Свет
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(20, 40, 20);
+    dirLight.castShadow = true;
+    dirLight.shadow.camera.left = -MAP_SIZE;
+    dirLight.shadow.camera.right = MAP_SIZE;
+    dirLight.shadow.camera.top = MAP_SIZE;
+    dirLight.shadow.camera.bottom = -MAP_SIZE;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    // Пол
+    const floorGeo = new THREE.PlaneGeometry(MAP_SIZE * 2, MAP_SIZE * 2);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2; 
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // Здания
+    const buildingCount = 15;
+    for (let i = 0; i < buildingCount; i++) {
+      const geo = new THREE.BoxGeometry(4, Math.random() * 10 + 5, 4);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.6 });
+      const mesh = new THREE.Mesh(geo, mat);
+      const angle = (i / buildingCount) * Math.PI * 2;
+      const radius = MAP_SIZE - 10;
+      mesh.position.x = Math.cos(angle) * radius;
+      mesh.position.z = Math.sin(angle) * radius;
+      mesh.position.y = geo.parameters.height / 2;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+    }
+
+    // Машина
+    const car = new THREE.Group();
+    const carGeo = new THREE.BoxGeometry(2, 1, 4);
+    const carMat = new THREE.MeshStandardMaterial({ color: 0xff4500, roughness: 0.4, metalness: 0.6 });
+    const carMesh = new THREE.Mesh(carGeo, carMat);
+    carMesh.position.y = 0.5; 
+    carMesh.castShadow = true; 
+    carMesh.receiveShadow = true;
+    car.add(carMesh);
+    scene.add(car);
+
+    // Игрок
+    const playerMesh = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.4, 1.2, 4, 8),
+      new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.4 })
+    );
+    playerMesh.position.y = 0.6; 
+    playerMesh.castShadow = true; 
+    playerMesh.receiveShadow = true;
+    scene.add(playerMesh);
+
+    // Управление
+    const keys = { w: false, a: false, s: false, d: false, e: false, c: false, space: false };
+    
+    const gameState = {
+      mode: 'car',
+      car: { pos: new THREE.Vector3(0, 0.5, 0), rot: 0, speed: 0, maxSpeed: 20, accel: 0.2, decel: 0.1, turn: 0.05 },
+      player: { pos: new THREE.Vector3(0, 0.6, 0), rot: 0, speed: 0, maxSpeed: 8, accel: 0.3, turn: 0.08 }
+    };
+
+    window.addEventListener('keydown', (e) => {
+      const k = e.key.toLowerCase();
+      if (k === 'w' || k === 'ц') keys.w = true;
+      if (k === 'a' || k === 'ф') keys.a = true;
+      if (k === 's' || k === 'ы') keys.s = true;
+      if (k === 'd' || k === 'в') keys.d = true;
+      if (k === 'e' || k === 'у') keys.e = true;
+      if (k === 'c' || k === 'с') keys.c = true;
+      if (k === ' ') keys.space = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      const k = e.key.toLowerCase();
+      if (k === 'w' || k === 'ц') keys.w = false;
+      if (k === 'a' || k === 'ф') keys.a = false;
+      if (k === 's' || k === 'ы') keys.s = false;
+      if (k === 'd' || k === 'в') keys.d = false;
+      if (k === 'e' || k === 'у') keys.e = false;
+      if (k === 'c' || k === 'с') keys.c = false;
+      if (k === ' ') keys.space = false;
+    });
+
+    const speedEl = document.getElementById('speed');
+    const modeEl = document.getElementById('mode-indicator');
+
+    function updatePhysics() {
+      if (gameState.mode === 'car') {
+        if (keys.w) gameState.car.speed = Math.min(gameState.car.speed + gameState.car.accel, gameState.car.maxSpeed);
+        if (keys.s) gameState.car.speed = Math.max(gameState.car.speed - gameState.car.decel, -gameState.car.maxSpeed);
+        
+        if (keys.a) gameState.car.rot -= gameState.car.turn;
+        if (keys.d) gameState.car.rot += gameState.car.turn;
+
+        const moveDist = gameState.car.speed;
+        gameState.car.pos.x += Math.sin(gameState.car.rot) * moveDist;
+        gameState.car.pos.z -= Math.cos(gameState.car.rot) * moveDist;
+
+        car.position.copy(gameState.car.pos);
+        car.rotation.y = gameState.car.rot;
+
+        const speedVal = Math.floor(Math.abs(gameState.car.speed));
+        speedEl.innerText = `Speed: \${speedVal} km/h`;
+        modeEl.innerText = "Mode: Car";
+      } else {
+        if (keys.w) playerMesh.position.z -= 0.2;
+        if (keys.s) playerMesh.position.z += 0.2;
+        if (keys.a) playerMesh.position.x -= 0.2;
+        if (keys.d) playerMesh.position.x += 0.2;
+        
+        speedEl.innerText = `Speed: 5 km/h`;
+        modeEl.innerText = "Mode: Player";
+      }
+
+      if (keys.e) {
+        gameState.mode = gameState.mode === 'car' ? 'player' : 'car';
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      updatePhysics();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
 </body>
 </html>
